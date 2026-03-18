@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VibeCheck — Verified Credentials for AI-Native Developers
+
+A professional web platform where vibe coders can submit AI-built projects for expert evaluation, earn verifiable badges and certificates, and build a public portfolio that proves their skills.
+
+## Project Status
+
+**Phase 0 — Foundation: ✅ Complete**
+- Next.js 16 with TypeScript strict mode
+- Tailwind CSS with custom design system
+- Professional, clean aesthetic (Linear/Vercel/Stripe inspired)
+- ESLint + Prettier + Husky pre-commit hooks
+
+**Phase 1 — Core MVP: ✅ Complete**
+- Authentication system (OAuth + email/password)
+- User dashboard (locked/unlocked states)
+- Project submission with validation
+- Real-time queue system
+- Evaluator dashboard
+- Evaluation scoring system
+- Post-evaluation automation
+
+**Phase 2 — Community, Rankings & Certificates: 🚧 In Progress**
+- Animated score reveal page
+- Badge generation flow
+- Public badge pages with verification
+- Public profile pages
+- Admin-selected Weekly Top 10 and Monthly Top 50 rankings
+- Engagement system (reactions, comments)
+- Certificate download system
+- Profile rating is not live yet
+- Planned profile rating design: 5-star rating + one hashtag-style note tag
+
+**Current Status: Beta MVP + active Phase 2 buildout**
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build for production
+npm run build
+
+# Lint code
+npm run lint
+
+# Format code
+npm run format
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the platform.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework:** Next.js 16 (App Router) + TypeScript
+- **Database:** Supabase (PostgreSQL + Auth + Storage + Realtime)
+- **UI:** shadcn/ui + Tailwind CSS
+- **Animations:** Framer Motion
+- **Forms:** React Hook Form + Zod
+- **Data Fetching:** TanStack Query
+- **Email:** Resend + React Email
+- **File Uploads:** Uploadthing
+- **Certificates:** Satori + Sharp + PDFKit
+- **Analytics:** Posthog
+- **Hosting:** Vercel
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
+- **PROJECT-COMPLETE-OVERVIEW.md** — Comprehensive project documentation, current status, all features
+- **/docs folder** — Detailed technical documentation:
+  - `AGENT-PROMPT.md` — Master briefing for AI agents
+  - `00-PROJECT-OVERVIEW.md` — Project scope and architecture
+  - `13-DESIGN-SYSTEM.md` — Design tokens and component patterns
+  - Feature-specific docs for each phase
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Design Philosophy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This platform is vibe coded but must look like a $500K funded product:
+- Dark-first professional aesthetic in the current build
+- Every component customized (no default shadcn)
+- Skeleton loaders, not spinners
+- Intentional copy for every state
+- Mobile responsive from 375px
+- TypeScript strict mode (no `any`)
 
-## Deploy on Vercel
+## Environment Setup
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Create a `.env.local` file with:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+### Database Setup
+1. Create Supabase project
+2. Run `supabase/schema.sql` in SQL Editor
+3. Configure OAuth providers (GitHub, Google, LinkedIn)
+4. Create storage bucket: `badges` (public)
+
+See `/docs` folder for detailed setup instructions.

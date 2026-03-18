@@ -1,0 +1,27 @@
+import type { Database } from './database.types'
+
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type Project = Database['public']['Tables']['projects']['Row']
+export type Evaluation = Database['public']['Tables']['evaluations']['Row']
+export type Queue = Database['public']['Tables']['queue']['Row']
+export type Badge = Database['public']['Tables']['badges']['Row']
+export type ProjectRanking = Database['public']['Tables']['project_rankings']['Row']
+export type CommunityPost = Database['public']['Tables']['community_posts']['Row']
+export type Notification = Database['public']['Tables']['notifications']['Row']
+export type Reaction = Database['public']['Tables']['reactions']['Row']
+export type Comment = Database['public']['Tables']['comments']['Row']
+export type CommentReaction = Database['public']['Tables']['comment_reactions']['Row']
+export type CommentFlag = Database['public']['Tables']['comment_flags']['Row']
+export type ModerationLog = Database['public']['Tables']['moderation_log']['Row']
+
+// Enums
+export type ProjectTier = Database['public']['Enums']['project_tier']
+export type ProjectStatus = Database['public']['Enums']['project_status']
+export type CertificateLevel = Database['public']['Enums']['certificate_level']
+export type RankingPeriod = Database['public']['Enums']['ranking_period']
+export type CommunityStatus = Database['public']['Enums']['community_status']
+export type UserPlan = Database['public']['Enums']['user_plan']
+export type ReactionType = Database['public']['Enums']['reaction_type']
+export type CommentStatus = Database['public']['Enums']['comment_status']
+export type BadgeType = Database['public']['Enums']['badge_type']
+export type ModerationAction = Database['public']['Enums']['moderation_action']
