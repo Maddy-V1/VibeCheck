@@ -2,7 +2,6 @@ import { createServerComponentClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Plus,
   ExternalLink,
@@ -12,34 +11,66 @@ import {
   CheckCircle2,
   FolderOpen,
   ArrowRight,
+  Sparkles,
+  FileText,
+  TrendingUp,
+  BarChart3,
 } from 'lucide-react'
 import { TierBadgeImage } from '@/components/ui/tier-badge-image'
 
-const TIER_VARIANT: Record<string, 'tier1' | 'tier2' | 'tier3'> = {
-  tier1: 'tier1',
-  tier2: 'tier2',
-  tier3: 'tier3',
-}
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'border-zinc-700/50 bg-zinc-800/50 text-zinc-500' },
+const STATUS_META: Record<string, { label: string; color: string; bgClass: string }> = {
+  draft: {
+    label: 'Draft',
+    color: '#71717a',
+    bgClass: 'bg-zinc-500/10 border-zinc-500/20 text-zinc-500',
+  },
   submitted: {
     label: 'Submitted',
-    className: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-400',
+    color: '#818cf8',
+    bgClass: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400',
   },
   in_queue: {
     label: 'In Queue',
-    className: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-400',
+    color: '#818cf8',
+    bgClass: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400',
   },
   evaluating: {
     label: 'Evaluating',
-    className: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
+    color: '#fbbf24',
+    bgClass: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
   },
   evaluated: {
     label: 'Evaluated',
-    className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+    color: '#34d399',
+    bgClass: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
   },
-  rejected: { label: 'Rejected', className: 'border-red-500/20 bg-red-500/10 text-red-400' },
+  rejected: {
+    label: 'Rejected',
+    color: '#f87171',
+    bgClass: 'bg-red-500/10 border-red-500/20 text-red-400',
+  },
+}
+
+function ScoreRing({ score, size = 48 }: { score: number; size?: number }) {
+  const pct = Math.min(score, 100)
+  const hue = pct < 40 ? 0 : pct < 70 ? 45 : 145
+  return (
+    <div
+      className="relative flex items-center justify-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background: `conic-gradient(hsla(${hue},80%,55%,0.85) ${pct * 3.6}deg, rgba(255,255,255,0.06) 0deg)`,
+      }}
+    >
+      <div
+        className="flex items-center justify-center rounded-full bg-zinc-950 text-xs font-bold tabular-nums text-white"
+        style={{ width: size - 10, height: size - 10 }}
+      >
+        {Math.round(score)}
+      </div>
+    </div>
+  )
 }
 
 export default async function MyProjectsPage() {
@@ -85,8 +116,16 @@ export default async function MyProjectsPage() {
   const evaluated = all.filter((p) => p.status === 'evaluated')
   const drafts = all.filter((p) => p.status === 'draft')
 
+  const avgScore =
+    evaluated.length > 0
+      ? Math.round(
+          evaluated.reduce((sum, p) => sum + (evalMap.get(p.id)?.score_total || 0), 0) /
+            evaluated.length
+        )
+      : 0
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -103,184 +142,273 @@ export default async function MyProjectsPage() {
         </Link>
       </div>
 
-      {/* Quick Stats */}
+      {/* ——— Stats cards ——— */}
       {all.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: 'Total', value: all.length, color: 'text-white' },
-            { label: 'In Queue', value: inQueue.length, color: 'text-indigo-400' },
-            { label: 'Evaluated', value: evaluated.length, color: 'text-emerald-400' },
-            { label: 'Drafts', value: drafts.length, color: 'text-zinc-500' },
+            {
+              label: 'Total',
+              value: all.length,
+              icon: <FolderOpen size={14} />,
+              iconBg: 'bg-indigo-500/15 text-indigo-400',
+            },
+            {
+              label: 'In Queue',
+              value: inQueue.length,
+              icon: <Clock size={14} />,
+              iconBg: 'bg-sky-500/15 text-sky-400',
+            },
+            {
+              label: 'Evaluated',
+              value: evaluated.length,
+              icon: <CheckCircle2 size={14} />,
+              iconBg: 'bg-emerald-500/15 text-emerald-400',
+            },
+            {
+              label: 'Avg Score',
+              value: avgScore > 0 ? avgScore : '—',
+              icon: <BarChart3 size={14} />,
+              iconBg: 'bg-amber-500/15 text-amber-400',
+            },
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
+              className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-all hover:border-white/[0.12]"
             >
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-600">
-                {stat.label}
-              </p>
-              <p className={`text-2xl font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
+              <div className="mb-2.5 flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-600">
+                  {stat.label}
+                </p>
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-md ${stat.iconBg}`}
+                >
+                  {stat.icon}
+                </div>
+              </div>
+              <p className="text-2xl font-bold tabular-nums text-white">{stat.value}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* In Queue Section */}
+      {/* ——— In Queue section ——— */}
       {inQueue.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-[15px] font-semibold text-white">In Queue</h2>
-          <div className="space-y-2">
-            {inQueue.map((project) => {
-              const queue = queueMap.get(project.id)
-              return (
-                <Link
-                  key={project.id}
-                  href={`/dashboard/projects/${project.id}`}
-                  className="flex items-center justify-between rounded-xl border border-indigo-500/15 bg-indigo-500/[0.03] p-4 transition-colors hover:bg-indigo-500/[0.06]"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_CONFIG[project.status]?.className}`}
-                      >
-                        {STATUS_CONFIG[project.status]?.label}
-                      </span>
-                      <Badge variant={TIER_VARIANT[project.tier] || 'secondary'}>
-                        {project.tier?.replace('tier', 'Tier ')}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="flex items-center gap-1.5 text-[14px] font-semibold text-white">
-                        {project.title}
-                        <TierBadgeImage tier={project.tier} size={14} />
-                      </p>
-                      {queue && (
-                        <p className="mt-0.5 text-[12px] text-zinc-500">
-                          Position #{queue.position} · Est. ~{queue.estimated_days || '?'} days
+        <section className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-indigo-500/[0.06] to-violet-500/[0.03] p-5">
+          <div
+            className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full opacity-25 blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.5), transparent)' }}
+          />
+          <div className="relative">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20">
+                <Clock size={13} className="text-indigo-400" />
+              </div>
+              <h2 className="text-[14px] font-semibold text-indigo-300">
+                In Queue ({inQueue.length})
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {inQueue.map((project) => {
+                const queue = queueMap.get(project.id)
+                return (
+                  <Link
+                    key={project.id}
+                    href={`/dashboard/projects/${project.id}`}
+                    className="group/q flex items-center justify-between rounded-xl bg-white/[0.04] p-4 transition-all hover:bg-white/[0.07]"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10">
+                        <span className="text-[14px] font-bold text-indigo-300">
+                          #{queue?.position || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="flex items-center gap-2 text-[14px] font-semibold text-white">
+                          {project.title}
+                          <TierBadgeImage tier={project.tier} size={14} />
                         </p>
-                      )}
+                        {queue && (
+                          <p className="mt-0.5 text-[12px] text-zinc-500">
+                            Estimated ~{queue.estimated_days || '?'} days until evaluation
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <ArrowRight size={14} className="text-zinc-600" />
-                </Link>
-              )
-            })}
+                    <ArrowRight
+                      size={14}
+                      className="text-zinc-700 transition-all group-hover/q:translate-x-0.5 group-hover/q:text-indigo-400"
+                    />
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         </section>
       )}
 
-      {/* All Projects */}
+      {/* ——— All Projects ——— */}
       <section>
-        <h2 className="mb-3 text-[15px] font-semibold text-white">All Projects ({all.length})</h2>
+        <div className="mb-5 flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/15">
+            <Sparkles size={13} className="text-indigo-400" />
+          </div>
+          <h2 className="text-[15px] font-semibold text-white">All Projects ({all.length})</h2>
+        </div>
 
         {all.length === 0 ? (
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-12 text-center">
-            <FolderOpen size={28} className="mx-auto mb-3 text-zinc-700" />
-            <h3 className="mb-1 text-[15px] font-semibold text-white">No projects yet</h3>
-            <p className="mb-5 text-[13px] text-zinc-500">Your first project is one step away</p>
+          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] p-14 text-center">
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 0%, rgba(99,102,241,0.06), transparent 50%)',
+              }}
+            />
+            <FolderOpen size={32} className="relative mx-auto mb-3 text-zinc-600" />
+            <h3 className="relative mb-1 text-[15px] font-semibold text-white">No projects yet</h3>
+            <p className="relative mb-5 text-[13px] text-zinc-500">
+              Your first project is one step away
+            </p>
             <Link href="/dashboard/submit">
               <Button>Submit Your First Project</Button>
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {all.map((project) => {
               const evaluation = evalMap.get(project.id)
               const queue = queueMap.get(project.id)
+              const status = STATUS_META[project.status] || STATUS_META.draft!
+              const isEvaluated = project.status === 'evaluated'
+              const isQueued = project.status === 'in_queue' || project.status === 'evaluating'
+
               return (
                 <Link
                   key={project.id}
                   href={`/dashboard/projects/${project.id}`}
-                  className="group block rounded-xl border border-white/[0.08] bg-white/[0.025] p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]"
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:shadow-xl hover:shadow-black/30"
                 >
-                  {/* Badges */}
-                  <div className="mb-3 flex items-center gap-2">
-                    <span
-                      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_CONFIG[project.status]?.className || STATUS_CONFIG.draft?.className || ''}`}
-                    >
-                      {STATUS_CONFIG[project.status]?.label || 'Unknown'}
-                    </span>
-                    <Badge variant={TIER_VARIANT[project.tier] || 'secondary'}>
-                      {project.tier?.replace('tier', 'Tier ')}
-                    </Badge>
-                  </div>
+                  {/* Gradient header bar */}
+                  <div
+                    className="h-1 w-full"
+                    style={{
+                      background: `linear-gradient(90deg, ${status.color}50, ${status.color}10, transparent)`,
+                    }}
+                  />
 
-                  <h3 className="mb-1 line-clamp-1 flex items-center gap-1.5 text-[14px] font-semibold text-white transition-colors group-hover:text-indigo-300">
-                    <span className="truncate">{project.title}</span>
-                    <TierBadgeImage
-                      tier={evaluation?.tier_confirmed || project.tier}
-                      size={14}
-                      className="shrink-0"
-                    />
-                  </h3>
-                  <p className="mb-3 line-clamp-2 min-h-[32px] text-[12px] text-zinc-600">
-                    {project.description}
-                  </p>
+                  <div className="flex flex-1 flex-col p-5">
+                    {/* Status + score */}
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${status.bgClass}`}
+                        >
+                          {status.label}
+                        </span>
+                        <TierBadgeImage
+                          tier={evaluation?.tier_confirmed || project.tier}
+                          size={16}
+                          className="opacity-80"
+                        />
+                      </div>
+                      {isEvaluated && evaluation && (
+                        <ScoreRing score={evaluation.score_total} size={44} />
+                      )}
+                    </div>
 
-                  {/* Score */}
-                  {project.status === 'evaluated' && evaluation && (
-                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] p-2.5">
-                      <CheckCircle2 size={13} className="text-emerald-400" />
-                      <span className="text-[12px] font-semibold text-emerald-400">
-                        Score: {evaluation.score_total}/100
-                      </span>
-                      <div className="ml-auto flex gap-0.5">
-                        {[...Array(5)].map((_, i) => (
-                          <span
-                            key={i}
-                            className={
-                              i < Math.round(evaluation.score_total / 20)
-                                ? 'text-emerald-400'
-                                : 'text-zinc-800'
-                            }
-                          >
-                            ●
+                    {/* Title */}
+                    <h3 className="mb-1.5 line-clamp-1 text-[15px] font-semibold text-white transition-colors group-hover:text-indigo-300">
+                      {project.title}
+                    </h3>
+                    <p className="mb-auto line-clamp-2 min-h-[2.5rem] text-[12px] leading-relaxed text-zinc-600">
+                      {project.description}
+                    </p>
+
+                    {/* Contextual info */}
+                    <div className="mt-4 space-y-2.5">
+                      {/* Evaluated — score bar */}
+                      {isEvaluated && evaluation && (
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] p-3">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle2 size={12} className="text-emerald-400" />
+                              <span className="text-[11px] font-semibold text-emerald-400">
+                                Score: {evaluation.score_total}/100
+                              </span>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <span
+                                  key={i}
+                                  className={`h-1 w-3 rounded-full ${
+                                    i < Math.round(evaluation.score_total / 20)
+                                      ? 'bg-emerald-400'
+                                      : 'bg-white/[0.06]'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+                              style={{ width: `${evaluation.score_total}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Queue */}
+                      {isQueued && queue && (
+                        <div className="flex items-center gap-2.5 rounded-xl border border-indigo-500/15 bg-indigo-500/[0.06] px-3 py-2.5">
+                          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-400" />
+                          <span className="text-[11px] font-semibold text-indigo-400">
+                            Queue #{queue.position}
                           </span>
-                        ))}
+                          <span className="text-[10px] text-indigo-400/60">
+                            · ~{queue.estimated_days || '?'}d
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Draft */}
+                      {project.status === 'draft' && (
+                        <div className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+                          <FileText size={12} className="text-zinc-600" />
+                          <span className="text-[11px] text-zinc-500">
+                            Draft — Complete & Submit →
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Links */}
+                      <div className="flex items-center justify-between text-zinc-700">
+                        <div className="flex items-center gap-2">
+                          {project.live_url && (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04] transition-colors group-hover:bg-white/[0.08]">
+                              <ExternalLink size={11} />
+                            </span>
+                          )}
+                          {project.github_url && (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04] transition-colors group-hover:bg-white/[0.08]">
+                              <Github size={11} />
+                            </span>
+                          )}
+                          {project.demo_video_url && (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04] transition-colors group-hover:bg-white/[0.08]">
+                              <Video size={11} />
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-zinc-800">
+                          {new Date(project.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
                       </div>
                     </div>
-                  )}
-
-                  {/* Queue */}
-                  {(project.status === 'in_queue' || project.status === 'evaluating') && queue && (
-                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-500/15 bg-indigo-500/[0.06] p-2.5">
-                      <Clock size={13} className="text-indigo-400" />
-                      <span className="text-[12px] font-medium text-indigo-400">
-                        Queue #{queue.position}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Draft */}
-                  {project.status === 'draft' && (
-                    <div className="mb-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-2.5">
-                      <span className="text-[12px] text-zinc-500">Draft — Complete & Submit →</span>
-                    </div>
-                  )}
-
-                  {/* Links */}
-                  <div className="flex items-center gap-3 text-zinc-700">
-                    {project.live_url && (
-                      <span className="flex items-center gap-1 text-[11px]">
-                        <ExternalLink size={11} /> Live
-                      </span>
-                    )}
-                    {project.github_url && (
-                      <span className="flex items-center gap-1 text-[11px]">
-                        <Github size={11} /> Code
-                      </span>
-                    )}
-                    {project.demo_video_url && (
-                      <span className="flex items-center gap-1 text-[11px]">
-                        <Video size={11} /> Demo
-                      </span>
-                    )}
-                    <span className="ml-auto text-[10px] text-zinc-800">
-                      {new Date(project.created_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
                   </div>
                 </Link>
               )
