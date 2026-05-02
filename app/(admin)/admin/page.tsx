@@ -4,7 +4,17 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, ArrowRight, Users, Clock, Zap, Trophy, BarChart3, Sparkles } from 'lucide-react'
+import {
+  RefreshCw,
+  ArrowRight,
+  Users,
+  Clock,
+  Zap,
+  Trophy,
+  BarChart3,
+  Sparkles,
+  Flag,
+} from 'lucide-react'
 
 interface QueueItem {
   id: string
@@ -64,7 +74,20 @@ interface ProfileRatingItem {
   lastEvaluatedAt: string | null
 }
 
-type AdminSection = 'queue' | 'weekly' | 'monthly' | 'ratings'
+interface FlaggedCommentItem {
+  id: string
+  body: string
+  status: string
+  createdAt: string
+  flagCount: number
+  projectId: string
+  projectTitle: string | null
+  projectOwnerUsername: string | null
+  authorUsername: string | null
+  authorDisplayName: string | null
+}
+
+type AdminSection = 'queue' | 'weekly' | 'monthly' | 'ratings' | 'flags'
 
 export default function AdminQueuePage() {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([])
@@ -72,10 +95,12 @@ export default function AdminQueuePage() {
   const [weeklyRankings, setWeeklyRankings] = useState<RankingBucket | null>(null)
   const [monthlyRankings, setMonthlyRankings] = useState<RankingBucket | null>(null)
   const [profileRatings, setProfileRatings] = useState<ProfileRatingItem[]>([])
+  const [flaggedComments, setFlaggedComments] = useState<FlaggedCommentItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rankingWarning, setRankingWarning] = useState<string | null>(null)
   const [ratingsWarning, setRatingsWarning] = useState<string | null>(null)
+  const [communityWarning, setCommunityWarning] = useState<string | null>(null)
   const [rankingActionKey, setRankingActionKey] = useState<string | null>(null)
   const [ratingSyncing, setRatingSyncing] = useState(false)
   const [activeSection, setActiveSection] = useState<AdminSection>('queue')
@@ -89,6 +114,7 @@ export default function AdminQueuePage() {
     setError(null)
     setRankingWarning(null)
     setRatingsWarning(null)
+    setCommunityWarning(null)
     try {
       const queueRes = await fetch('/api/admin/queue/list')
 
@@ -100,9 +126,10 @@ export default function AdminQueuePage() {
       setProfile(evaluator || null)
 
       try {
-        const [rankingsRes, ratingsRes] = await Promise.all([
+        const [rankingsRes, ratingsRes, communityRes] = await Promise.all([
           fetch('/api/admin/rankings'),
           fetch('/api/admin/profile-ratings'),
+          fetch('/api/admin/community/flags'),
         ])
 
         if (!rankingsRes.ok) {
@@ -133,13 +160,26 @@ export default function AdminQueuePage() {
           const ratings = await ratingsRes.json()
           setProfileRatings(ratings.profiles || [])
         }
+
+        if (!communityRes.ok) {
+          const communityError = await communityRes.json().catch(() => null)
+          setFlaggedComments([])
+          setCommunityWarning(
+            communityError?.error || 'Community moderation is unavailable right now.'
+          )
+        } else {
+          const community = await communityRes.json()
+          setFlaggedComments(community.comments || [])
+        }
       } catch (rankingError) {
         console.error('Failed to load admin extras:', rankingError)
         setWeeklyRankings(null)
         setMonthlyRankings(null)
         setProfileRatings([])
+        setFlaggedComments([])
         setRankingWarning('Rankings are unavailable right now. Queue management still works.')
         setRatingsWarning('Profile ratings are unavailable right now.')
+        setCommunityWarning('Community moderation is unavailable right now.')
       }
     } catch (err) {
       console.error('Failed to load queue:', err)
@@ -237,6 +277,7 @@ export default function AdminQueuePage() {
   const unassigned = queueItems.filter((item) => !item.assigned_to).length
   const ratingNeedsSyncCount = profileRatings.filter((item) => item.needsSync).length
   const ratingEligibleCount = profileRatings.filter((item) => item.evaluatedCount >= 3).length
+  const flaggedCommentCount = flaggedComments.length
 
   if (loading) {
     return (
@@ -267,7 +308,7 @@ export default function AdminQueuePage() {
         </div>
 
         {/* Stats */}
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-600">
@@ -317,6 +358,15 @@ export default function AdminQueuePage() {
               {ratingNeedsSyncCount}
             </p>
           </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-600">
+                Flagged
+              </p>
+              <Flag size={14} className="text-red-400" />
+            </div>
+            <p className="text-2xl font-bold tabular-nums text-red-400">{flaggedCommentCount}</p>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-wrap gap-2">
@@ -325,6 +375,7 @@ export default function AdminQueuePage() {
             { id: 'weekly', label: 'Top 10 Weekly' },
             { id: 'monthly', label: 'Top 50 Monthly' },
             { id: 'ratings', label: 'Profile Rating' },
+            { id: 'flags', label: 'Community Flags' },
           ].map((section) => {
             const isActive = activeSection === section.id
             return (
@@ -360,6 +411,12 @@ export default function AdminQueuePage() {
         {ratingsWarning && activeSection === 'ratings' && (
           <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-[12px] text-amber-300">
             {ratingsWarning}
+          </div>
+        )}
+
+        {communityWarning && activeSection === 'flags' && (
+          <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-[12px] text-amber-300">
+            {communityWarning}
           </div>
         )}
 
@@ -585,6 +642,66 @@ export default function AdminQueuePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {activeSection === 'flags' ? (
+          <section className="rounded-xl border border-white/[0.08] bg-white/[0.025]">
+            <div className="border-b border-white/[0.06] px-5 py-4">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-red-300">
+                <Flag size={11} />
+                Moderation Queue
+              </div>
+              <h2 className="text-[15px] font-semibold text-white">Flagged Comment Visibility</h2>
+              <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
+                Reported comments are hidden from the public feed once auto-flagged and remain
+                visible here for the evaluator team.
+              </p>
+            </div>
+
+            {flaggedComments.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <Flag size={24} className="mx-auto mb-3 text-zinc-700" />
+                <p className="text-[13px] text-zinc-500">No flagged comments right now.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/[0.05]">
+                {flaggedComments.map((comment) => (
+                  <div key={comment.id} className="px-5 py-4">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-red-300">
+                        {comment.flagCount} flags
+                      </span>
+                      <span className="text-[12px] text-zinc-500">
+                        {new Date(comment.createdAt).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-[13px] font-medium text-white">
+                      {comment.authorDisplayName || comment.authorUsername || 'Anonymous'} on{' '}
+                      {comment.projectTitle || 'Untitled Project'}
+                    </p>
+                    <p className="mt-2 max-w-3xl whitespace-pre-wrap text-[12px] leading-6 text-zinc-400">
+                      {comment.body}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-4 text-[12px] text-zinc-500">
+                      <span>@{comment.authorUsername || 'member'}</span>
+                      <span>Project owner: @{comment.projectOwnerUsername || 'member'}</span>
+                      <Link
+                        href={`/badge/${comment.projectId}`}
+                        className="text-indigo-400 transition-colors hover:text-indigo-300"
+                      >
+                        Open badge page →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>

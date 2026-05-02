@@ -1,0 +1,427 @@
+# VibeCheck — Complete Project Deep Dive
+
+## At a Glance
+
+| Attribute | Value |
+|---|---|
+| **Framework** | Next.js 16 (App Router) |
+| **Language** | TypeScript (strict) |
+| **Backend** | Supabase (Postgres + Auth + Realtime + Storage) |
+| **Styling** | Tailwind CSS v4 + custom design system |
+| **State/Data** | TanStack React Query, Server Components |
+| **UI Components** | Custom shadcn/ui-style primitives |
+| **Animations** | Framer Motion |
+| **Codebase Size** | ~13,941 lines across ~80 TS/TSX files |
+| **Phase** | Phase 2 in progress (MVP + community features done) |
+
+---
+
+## Architecture Overview
+
+```mermaid
+graph TB
+    subgraph Client["Client (Browser)"]
+        LP["Landing Page (SSR)"]
+        Auth["Auth Pages (sign-in/sign-up)"]
+        Dash["Dashboard (SSR + Client)"]
+        Admin["Evaluator Dashboard (SSR)"]
+        Public["Public Pages (profiles, badges, verify)"]
+        Community["Community Feed"]
+    end
+
+    subgraph Server["Next.js Server"]
+        MW["Middleware (auth guard)"]
+        SC["Server Components"]
+        API["API Routes (/api/*)"]
+    end
+
+    subgraph Supabase["Supabase"]
+        SAuth["Auth (OAuth + Email)"]
+        DB["PostgreSQL (RLS)"]
+        RT["Realtime"]
+        Storage["Storage (badges/certs)"]
+    end
+
+    Client --> MW --> SC --> DB
+    Client --> API --> DB
+    Auth --> SAuth
+    MW --> SAuth
+    RT -.->|"Queue updates"| Dash
+    API -->|"Service role"| DB
+    API --> Storage
+```
+
+---
+
+## File Structure (Complete Map)
+
+### Route Pages (51 files in `/app`)
+
+| Route | File | Purpose |
+|---|---|---|
+| `/` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/page.tsx) | Landing page with hero, tiers, features, leaderboards, CTA |
+| `/sign-in` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(auth)/sign-in/page.tsx) | OAuth + email sign-in |
+| `/sign-up` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(auth)/sign-up/page.tsx) | OAuth + email sign-up |
+| `/auth/callback` | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/auth/callback/route.ts) | OAuth callback handler |
+| `/dashboard` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/page.tsx) | Locked/Unlocked dashboard (conditional) |
+| `/dashboard/onboarding` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/onboarding/page.tsx) | 4-step onboarding flow |
+| `/dashboard/projects` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/projects/page.tsx) | All user projects list |
+| `/dashboard/projects/[id]` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/projects/[id]/page.tsx) | Single project detail |
+| `/dashboard/projects/[id]/result` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/projects/[id]/result/page.tsx) | Score reveal (animated) |
+| `/dashboard/submit` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/submit/page.tsx) | Project submission form |
+| `/dashboard/settings` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(dashboard)/dashboard/settings/page.tsx) | User settings |
+| `/admin` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(admin)/admin/page.tsx) | Evaluator queue (32KB — large file) |
+| `/admin/evaluate/[projectId]` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(admin)/admin/evaluate/[projectId]/page.tsx) | Evaluation scoring form |
+| `/u/[username]` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/u/[username]/page.tsx) | Public profile |
+| `/badge/[projectId]` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/badge/[projectId]/page.tsx) | Public badge page |
+| `/verify/[certId]` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/verify/[certId]/page.tsx) | Certificate verification |
+| `/community` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/community/page.tsx) | Community feed |
+| `/terms` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/terms/page.tsx) | Terms of service |
+| `/privacy` | [page.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/privacy/page.tsx) | Privacy policy |
+
+### API Routes (19 endpoints)
+
+| Endpoint | Method | File | Purpose |
+|---|---|---|---|
+| `/api/projects/submit` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/projects/submit/route.ts) | Submit project for evaluation |
+| `/api/queue/position/[projectId]` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/queue/position/[projectId]/route.ts) | Get queue position |
+| `/api/certificates/generate` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/certificates/generate/route.ts) | Generate badge/certificate |
+| `/api/certificates/download` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/certificates/download/route.ts) | Download certificate |
+| `/api/check-url` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/check-url/route.ts) | Validate URL accessibility |
+| `/api/admin/projects/[projectId]` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/projects/[projectId]/route.ts) | Get project for evaluation |
+| `/api/admin/queue/list` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/queue/list/route.ts) | List queue entries |
+| `/api/admin/queue/pickup` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/queue/pickup/route.ts) | Assign project to evaluator |
+| `/api/admin/queue/assign` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/queue/assign/route.ts) | Assign evaluator to project |
+| `/api/admin/queue/complete` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/queue/complete/route.ts) | Remove from queue |
+| `/api/admin/evaluations/submit` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/evaluations/submit/route.ts) | Submit evaluation scores |
+| `/api/admin/rankings` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/rankings/route.ts) | Manage leaderboard rankings |
+| `/api/admin/profile-ratings` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/profile-ratings/route.ts) | Manage profile ratings |
+| `/api/admin/community/flags` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/admin/community/flags/route.ts) | View flagged content |
+| `/api/community/feed` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/community/feed/route.ts) | Community feed data |
+| `/api/community/projects/[projectId]/react` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/community/projects/[projectId]/react/route.ts) | Toggle reaction |
+| `/api/community/projects/[projectId]/comments` | GET/POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/community/projects/[projectId]/comments/route.ts) | Project comments |
+| `/api/community/comments/[commentId]/flag` | POST | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/community/comments/[commentId]/flag/route.ts) | Flag a comment |
+| `/api/debug/projects` | GET | [route.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/api/debug/projects/route.ts) | Debug project listing |
+
+### Components (~30 files)
+
+```
+components/
+├── features/
+│   ├── auth/
+│   │   ├── brand-panel.tsx          # Animated brand panel for auth pages
+│   │   └── oauth-buttons.tsx        # GitHub, Google, LinkedIn OAuth buttons
+│   ├── badges/
+│   │   └── BadgeShareSection.tsx    # Badge sharing UI (currently open file)
+│   ├── certificates/
+│   │   └── (empty)                  # Certificate components TBD
+│   ├── community/
+│   │   ├── community-feed.tsx       # Paginated feed with reactions (14.8KB)
+│   │   └── project-comments.tsx     # Comment thread UI (13.5KB)
+│   ├── dashboard/
+│   │   ├── dashboard-skeleton.tsx   # Loading skeleton
+│   │   ├── locked-dashboard.tsx     # Pre-evaluation locked state (8.2KB)
+│   │   ├── unlocked-dashboard.tsx   # Post-evaluation full dashboard (13.9KB)
+│   │   ├── sidebar.tsx              # Navigation sidebar (8.2KB)
+│   │   ├── logout-button.tsx        # Sign out button
+│   │   ├── welcome-banner.tsx       # Welcome message
+│   │   └── settings/               # Settings sub-components
+│   ├── evaluation/
+│   │   ├── CertificatePreview.tsx   # Certificate preview card
+│   │   ├── ProjectResultsPanel.tsx  # Private results view (10KB)
+│   │   ├── PublicResultsPanel.tsx   # Public results view (9KB)
+│   │   └── ScoreReveal.tsx          # 5-phase animated score reveal (8.6KB)
+│   ├── home/
+│   │   └── hero-features.tsx        # Landing page feature cards
+│   ├── leaderboard/
+│   │   └── ranked-project-list.tsx  # Leaderboard list component
+│   ├── profile/
+│   │   ├── ProfileHeader.tsx        # Public profile header
+│   │   └── PublicProjectCard.tsx    # Project card for public profiles
+│   └── queue/
+│       └── queue-position-badge.tsx # Live queue position indicator
+├── layouts/                          # (empty — layouts inline in route groups)
+├── providers/
+│   └── query-provider.tsx           # TanStack React Query provider
+└── ui/
+    ├── badge.tsx                    # Badge component (CVA)
+    ├── button.tsx                   # Button component (CVA)
+    ├── card.tsx                     # Card component
+    ├── checkbox.tsx                 # Checkbox component
+    ├── input.tsx                    # Input component
+    ├── label.tsx                    # Label component
+    ├── textarea.tsx                 # Textarea component
+    └── tier-badge-image.tsx         # Tier badge image display
+```
+
+### Library (`/lib`)
+
+```
+lib/
+├── community/
+│   ├── config.ts                   # Community types, constants, type guards
+│   └── server.ts                   # Server-side community data fetching (6.6KB)
+├── supabase/
+│   ├── client.ts                   # Browser Supabase client (singleton)
+│   ├── server.ts                   # Server Component Supabase client
+│   ├── service.ts                  # Service role client (bypasses RLS)
+│   └── auth-helpers.ts             # getCurrentUser(), getCurrentProfile(), signOut()
+├── types/
+│   ├── database.types.ts           # Full Supabase-generated types (17.5KB)
+│   └── index.ts                    # Re-exported convenience types
+├── utils/
+│   ├── cn.ts                       # clsx + tailwind-merge helper
+│   ├── leaderboard.ts              # Leaderboard window & sorting utils
+│   ├── profile-rating.ts           # Profile rating calculations
+│   ├── queue.ts                    # Queue ETA calculations
+│   └── slug.ts                     # URL slug generation
+└── validations/
+    ├── evaluation.ts               # Zod schema for evaluation scoring
+    └── project.ts                  # Zod schema for project submission
+```
+
+---
+
+## Database Schema (12 tables + enums)
+
+```mermaid
+erDiagram
+    profiles ||--o{ projects : "submits"
+    profiles ||--o{ notifications : "receives"
+    profiles ||--o{ reactions : "creates"
+    profiles ||--o{ comments : "writes"
+    projects ||--o| evaluations : "has"
+    projects ||--o| queue : "enters"
+    projects ||--o{ badges : "earns"
+    projects ||--o{ reactions : "receives"
+    projects ||--o{ comments : "receives"
+    projects ||--o{ project_rankings : "ranked in"
+    evaluations ||--o{ project_rankings : "referenced by"
+    comments ||--o{ comment_reactions : "has"
+    comments ||--o{ comment_flags : "flagged"
+
+    profiles {
+        uuid id PK
+        text username UK
+        text display_name
+        text avatar_url
+        text bio
+        boolean is_evaluator
+        text evaluator_role
+        boolean onboarding_done
+        enum community_status
+    }
+
+    projects {
+        uuid id PK
+        uuid user_id FK
+        text title
+        text description
+        enum tier
+        enum status
+        text live_url
+        text github_url
+        text demo_video_url
+        text[] tech_stack
+        int reaction_count
+        int comment_count
+    }
+
+    evaluations {
+        uuid id PK
+        uuid project_id FK
+        uuid evaluator_id FK
+        int score_functionality
+        int score_ux
+        int score_complexity
+        int score_deployment
+        int score_code_quality
+        int score_documentation
+        int score_originality
+        int score_total
+        text reviewer_note
+        text internal_notes
+        enum tier_confirmed
+    }
+
+    queue {
+        uuid id PK
+        uuid project_id FK
+        int position
+        enum plan
+        int estimated_days
+        uuid assigned_evaluator
+    }
+
+    badges {
+        uuid id PK
+        uuid project_id FK
+        uuid user_id FK
+        enum badge_type
+        text verification_id
+        text certificate_url
+        text certificate_pdf_url
+    }
+```
+
+### 16 SQL Migrations (in `/supabase`)
+
+| # | File | Status | Purpose |
+|---|---|---|---|
+| 00 | [schema.sql](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/supabase/schema.sql) | ✅ Base | All tables, enums, RLS, core triggers |
+| 02 | 02_soft_delete_and_reactions.sql | ✅ | Soft delete, post_reactions (superseded) |
+| 03 | 03_community_engagement.sql | ✅ | Comments, comment_reactions (superseded) |
+| 04 | 04_complete_engagement_system.sql | ✅ **Current** | Unified reactions + comments |
+| 05-07 | 05-07_*.sql | ✅ | Progressive handle_new_user fixes |
+| 08 | 08_username_checker.sql | ✅ | Username availability check function |
+| 09 | 09_queue_triggers.sql | ✅ | Queue position auto-assignment |
+| 10 | 10_evaluator_rls_policies.sql | ❌ Rolled back | Caused RLS policy loops |
+| 11 | 11_rollback_10.sql | ✅ | Reverted migration 10 |
+| 12 | 12_storage_policies.sql | ✅ | Storage bucket policies |
+| 13 | 13_public_profile_support.sql | ✅ | Public profile queries |
+| 14 | 14_project_rankings.sql | ✅ | Weekly/monthly rankings |
+| 15 | 15_phase_2_1_community.sql | ✅ | Community feed support |
+| 16 | 16_fix_comment_functions.sql | ✅ | Comment function bug fixes |
+
+---
+
+## Key Data Flows
+
+### 1. User Signup → Dashboard
+
+```
+Sign Up → OAuth/Email → Supabase Auth
+  → DB trigger: handle_new_user() creates profile
+  → Middleware checks session
+  → Dashboard checks onboarding_done
+  → If false → 4-step onboarding (username, bio, guidelines)
+  → If true → Locked/Unlocked dashboard
+```
+
+### 2. Project Submission → Evaluation
+
+```
+Submit Form (Zod validated) → POST /api/projects/submit
+  → Insert into projects (status: submitted)
+  → Insert into queue (auto-position via trigger)
+  → Update status → in_queue
+  → Create notification
+  
+Evaluator picks up → POST /api/admin/queue/pickup
+  → Update status → evaluating
+  → Assign evaluator_id
+
+Evaluator submits → POST /api/admin/evaluations/submit
+  → Insert evaluation (7 scores)
+  → Update project status → evaluated
+  → Remove from queue
+  → Create badge
+  → Send notification
+```
+
+### 3. Badge & Certificate Generation
+
+```
+POST /api/certificates/generate
+  → Fetch project + evaluation + profile
+  → Satori renders badge SVG → Sharp converts to PNG
+  → Upload to Supabase Storage
+  → Return URLs
+  
+GET /api/certificates/download
+  → Fetch badge data
+  → Stream file download
+```
+
+---
+
+## Authentication & Authorization
+
+### Middleware ([middleware.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/middleware.ts))
+- Refreshes Supabase session on every request
+- `/dashboard/*` → requires authenticated user (redirects to `/sign-in`)
+- `/admin/*` → requires authenticated user (role check deferred to layout)
+
+### Admin Layout ([layout.tsx](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/app/(admin)/layout.tsx))
+- Checks `profile.is_evaluator === true`
+- Redirects non-evaluators to `/dashboard`
+
+### Supabase Client Hierarchy
+| Client | File | Usage | RLS |
+|---|---|---|---|
+| Browser | `lib/supabase/client.ts` | Client components | ✅ Enforced |
+| Server | `lib/supabase/server.ts` | Server components, SSR | ✅ Enforced |
+| Service | `lib/supabase/service.ts` | Admin API routes | ❌ Bypassed |
+
+> [!IMPORTANT]
+> Evaluator operations use the **service role client** because migration 10's RLS policies were rolled back. This means admin endpoints rely on application-level auth checks rather than database-level security.
+
+---
+
+## Design System
+
+### Theme: Dark-first with indigo accents
+- **Background**: Pure black `#000000`
+- **Text**: Light gray `#e7e9ea`
+- **Brand**: Indigo `#6366F1` with gradient text utility
+- **Fonts**: Geist Sans + Geist Mono (Google Fonts)
+
+### Tailwind v4 Setup
+- Uses `@import 'tailwindcss'` + `@config` directive
+- Custom design tokens in [tailwind.config.ts](file:///Users/madhavvarshney/Desktop/Projects/vibecheck/tailwind.config.ts):
+  - Brand colors, surface colors, text hierarchy, tier colors, certificate level colors
+  - Custom shadows (`glow`, `glow-lg`, `brand`, `card`)
+  - Custom animations (`fade-in`, `fade-up`, `scale-in`, `shimmer`, `pulse-glow`, `float`)
+- Global CSS utilities: `gradient-text`, `progress-bar`
+
+### UI Components (CVA-based)
+- `Button` — variant-based with `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`
+- `Badge` — status badges with variants
+- `Card` — with header/content/footer composition
+- `Input`, `Textarea`, `Checkbox`, `Label` — form primitives
+
+---
+
+## Current Development Status
+
+### ✅ Complete (Phase 0 + Phase 1 + Most of Phase 2)
+- Full authentication (OAuth + email)
+- 4-step onboarding
+- Locked/unlocked dashboard states
+- Project submission with Zod validation
+- Real-time queue system
+- Evaluator dashboard with scoring
+- Score reveal with 5-phase Framer Motion animation
+- Badge generation (Satori + Sharp)
+- Public profiles (`/u/[username]`)
+- Public badge pages + verification
+- Certificate download
+- Community feed with reactions
+- Comment system with flagging
+- Admin-curated weekly/monthly leaderboards
+
+### 🚧 In Progress / Incomplete
+- Profile rating system (5-star + hashtag note tag — placeholder code in `lib/utils/profile-rating.ts`)
+- `components/features/certificates/` directory is **empty**
+- `components/layouts/` directory is **empty**
+- `emails/` directory is **empty** (Resend integration not started)
+- Email notifications (Resend) — not implemented
+- `certificates/` has only `BadgeTemplate.tsx` (Satori template)
+
+### ⏳ Phase 3 (Not Started)
+- Email notifications (Resend)
+- Paid priority queue (Stripe)
+- Community evaluation
+- Advanced analytics
+- Scale hardening
+
+---
+
+## Notable Technical Observations
+
+> [!NOTE]
+> 1. **Admin page is massive** — `app/(admin)/admin/page.tsx` is **32.8KB** (~800+ lines). This should be refactored into smaller components.
+> 2. **Leaderboard query duplication** — The same complex ranking query appears in both `app/page.tsx` and `app/(dashboard)/dashboard/page.tsx`. Should be extracted to a shared utility.
+> 3. **Service role security** — All admin operations bypass RLS via service role key. Application-level checks in API routes are the only auth boundary.
+> 4. **`any` types** — `queueData` and `evaluationsData` in the dashboard page use `any[]` types instead of proper typing.
+> 5. **Admin layout uses light theme** — The admin layout (`bg-gray-50`, `bg-white`) contrasts with the rest of the app which is dark-themed.

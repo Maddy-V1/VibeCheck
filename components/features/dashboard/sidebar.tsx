@@ -21,19 +21,21 @@ interface SidebarProps {
   unreadCount?: number
 }
 
+interface NavItem {
+  href: string
+  label: string
+  icon: typeof LayoutDashboard
+  locked?: boolean
+  tooltip?: string
+}
+
 export function Sidebar({ profile, isUnlocked, unreadCount = 0 }: SidebarProps) {
   const pathname = usePathname()
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/projects', label: 'My Projects', icon: FolderOpen },
-    {
-      href: '/community',
-      label: 'Community',
-      icon: Users,
-      locked: !isUnlocked,
-      tooltip: 'Get your first project evaluated to unlock',
-    },
+    { href: '/community', label: 'Community', icon: Users },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ]
 
@@ -75,7 +77,7 @@ export function Sidebar({ profile, isUnlocked, unreadCount = 0 }: SidebarProps) 
             const isActive =
               pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href))
-            const isLocked = item.locked
+            const isLocked = false
             const Icon = item.icon
 
             return (

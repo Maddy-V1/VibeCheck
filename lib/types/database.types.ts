@@ -503,6 +503,7 @@ export interface Database {
           id: string
           user_id: string
           actioned_by: string
+          comment_id: string | null
           action: string
           reason: string
           duration_days: number | null
@@ -512,6 +513,7 @@ export interface Database {
           id?: string
           user_id: string
           actioned_by: string
+          comment_id?: string | null
           action: string
           reason: string
           duration_days?: number | null
@@ -521,6 +523,7 @@ export interface Database {
           id?: string
           user_id?: string
           actioned_by?: string
+          comment_id?: string | null
           action?: string
           reason?: string
           duration_days?: number | null
@@ -566,14 +569,48 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_project_comment: {
+        Args: {
+          p_project_id: string
+          p_user_id: string
+          p_body: string
+          p_parent_comment_id?: string | null
+        }
+        Returns: string
+      }
+      toggle_project_reaction: {
+        Args: {
+          p_project_id: string
+          p_user_id: string
+          p_reaction?: Database['public']['Enums']['reaction_type']
+        }
+        Returns: boolean
+      }
+      flag_comment: {
+        Args: {
+          p_comment_id: string
+          p_user_id: string
+          p_reason: string
+          p_details?: string | null
+        }
+        Returns: boolean
+      }
+      report_comment_for_moderation: {
+        Args: {
+          p_comment_id: string
+          p_reporter_id: string
+          p_reason: string
+          p_details?: string | null
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       user_plan: 'free' | 'priority'
       community_status: 'active' | 'warned' | 'suspended' | 'banned'
       project_tier: 'tier1' | 'tier2' | 'tier3'
       project_status: 'draft' | 'submitted' | 'in_queue' | 'evaluating' | 'evaluated' | 'rejected'
-      moderation_action: 'warning' | 'suspension' | 'ban' | 'reinstatement'
+      moderation_action: 'warning' | 'suspension' | 'ban' | 'reinstatement' | 'content_flag'
       badge_type: 'project_badge' | 'profile_certificate'
       certificate_level: 'provisional' | 'foundational' | 'maker' | 'builder' | 'architect'
       ranking_period: 'weekly' | 'monthly'

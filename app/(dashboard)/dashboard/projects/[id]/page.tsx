@@ -3,9 +3,11 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ExternalLink, Github, Video, ArrowLeft, Share2, Clock, CheckCircle2 } from 'lucide-react'
+import { ExternalLink, Github, Video, ArrowLeft, Share2, Clock } from 'lucide-react'
 import { ProjectResultsPanel } from '@/components/features/evaluation/ProjectResultsPanel'
 import { TierBadgeImage } from '@/components/ui/tier-badge-image'
+import { ProjectComments } from '@/components/features/community/project-comments'
+import { getCommunityViewer } from '@/lib/community/server'
 
 const TIER_VARIANT: Record<string, 'tier1' | 'tier2' | 'tier3'> = {
   tier1: 'tier1',
@@ -84,7 +86,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     .eq('id', user.id)
     .single()
 
-  const isEvaluated = project.status === 'evaluated' && evaluation
+  const isEvaluated = Boolean(project.status === 'evaluated' && evaluation)
+  const viewer = isEvaluated ? await getCommunityViewer() : null
 
   return (
     <div className="space-y-6">
@@ -245,6 +248,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </div>
             </div>
           </div>
+
+          {isEvaluated && viewer ? (
+            <ProjectComments
+              projectId={project.id}
+              projectOwnerId={project.user_id}
+              viewer={viewer}
+            />
+          ) : null}
         </div>
 
         {/* Right Column - Results Panel */}

@@ -1,10 +1,13 @@
-import { createServerComponentClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ExternalLink, Github, Video, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PublicResultsPanel } from '@/components/features/evaluation/PublicResultsPanel'
 import { TierBadgeImage } from '@/components/ui/tier-badge-image'
+import { ProjectComments } from '@/components/features/community/project-comments'
+import { RelatedProjects } from '@/components/features/community/related-projects'
+import { getCommunityViewer } from '@/lib/community/server'
 
 const TIER_CONFIG = {
   tier1: { label: 'Tier 1 — Foundational', color: 'text-tier-1 border-tier-1 bg-tier-1/10' },
@@ -18,7 +21,8 @@ export default async function PublicBadgePage({
   params: Promise<{ projectId: string }>
 }) {
   const { projectId } = await params
-  const supabase = await createServerComponentClient()
+  const supabase = createServiceClient()
+  const viewer = await getCommunityViewer()
 
   // Fetch project - must be public and evaluated
   const { data: project } = await supabase
@@ -55,9 +59,63 @@ export default async function PublicBadgePage({
   // Fetch project owner profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('username, display_name')
+    .select('username, display_name, avatar_url')
     .eq('id', project.user_id)
     .single()
+
+  // Fetch other community projects (excluding current one)
+  const { data: relatedProjectRows } = await supabase
+    .from('projects')
+    .select(
+      `
+      id,
+      title,
+      description,
+      tech_stack,
+      tier,
+      live_url,
+      comment_count,
+      user_id,
+      profiles!projects_user_id_fkey (
+        username,
+        display_name,
+        avatar_url
+      ),
+      evaluations!evaluations_project_id_fkey (
+        score_total,
+        evaluated_at
+      )
+    `
+    )
+    .eq('is_public', true)
+    .eq('status', 'evaluated')
+    .neq('id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(6)
+
+  const relatedProjects = (relatedProjectRows ?? [])
+    .filter((p) => {
+      const eval_ = Array.isArray(p.evaluations) ? p.evaluations[0] : p.evaluations
+      return eval_ && eval_.score_total != null
+    })
+    .map((p) => {
+      const profileData = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+      const eval_ = Array.isArray(p.evaluations) ? p.evaluations[0] : p.evaluations
+      return {
+        projectId: p.id,
+        title: p.title,
+        description: p.description,
+        techStack: p.tech_stack || [],
+        tier: p.tier,
+        score: eval_!.score_total,
+        liveUrl: p.live_url,
+        username: profileData?.username ?? null,
+        displayName: profileData?.display_name ?? null,
+        avatarUrl: profileData?.avatar_url ?? null,
+        evaluatedAt: eval_!.evaluated_at,
+        commentCount: p.comment_count,
+      }
+    })
 
   return (
     <div className="min-h-screen bg-black p-6 py-8">
@@ -182,6 +240,17 @@ export default async function PublicBadgePage({
               </div>
             </div>
           </div>
+
+          {/* Comments — Preview mode: 2 comments + see more */}
+          <ProjectComments
+            projectId={project.id}
+            projectOwnerId={project.user_id}
+            viewer={viewer}
+            previewMode
+          />
+
+          {/* Related Community Projects */}
+          <RelatedProjects projects={relatedProjects} />
         </div>
 
         {/* Right Column - Results Panel */}

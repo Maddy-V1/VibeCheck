@@ -1,7 +1,9 @@
 import { createServerComponentClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import { ProfileHeader } from '@/components/features/profile/ProfileHeader'
 import { PublicProjectCard } from '@/components/features/profile/PublicProjectCard'
+import { PublicUserComments } from '@/components/features/profile/PublicUserComments'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -78,7 +80,7 @@ export default async function PublicProfilePage({
           </div>
           <h1 className="mb-2 text-xl font-bold text-white">This profile is private</h1>
           <p className="mb-6 text-[13px] text-zinc-500">
-            @{username} hasn't made their profile public yet.
+            @{username} hasn&apos;t made their profile public yet.
           </p>
           <Link
             href="/"
@@ -115,6 +117,42 @@ export default async function PublicProfilePage({
     }))
   }
 
+  // Fetch user's recent comments (using service client to bypass RLS)
+  const serviceSupabase = createServiceClient()
+  const { data: userComments } = await serviceSupabase
+    .from('comments')
+    .select(
+      `
+      id,
+      body,
+      is_edited,
+      created_at,
+      project_id,
+      projects!comments_project_id_fkey (
+        title
+      )
+    `
+    )
+    .eq('user_id', profile.id)
+    .eq('status', 'visible')
+    .is('parent_comment_id', null)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const formattedComments = (userComments ?? [])
+    .filter((c) => c.project_id !== null)
+    .map((c) => {
+      const project = Array.isArray(c.projects) ? c.projects[0] : c.projects
+      return {
+        id: c.id,
+        body: c.body,
+        createdAt: c.created_at,
+        isEdited: c.is_edited,
+        projectId: c.project_id!,
+        projectTitle: project?.title ?? 'Unknown project',
+      }
+    })
+
   const evaluatedCount = projectsWithEvaluations.filter((p) => p.evaluations?.length > 0).length
 
   return (
@@ -143,8 +181,9 @@ export default async function PublicProfilePage({
         evaluatedProjectCount={evaluatedCount}
       />
 
-      {/* Projects Grid */}
+      {/* Content */}
       <div className="mx-auto max-w-5xl px-6 py-10">
+        {/* Projects Grid */}
         {projectsWithEvaluations.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-[13px] text-zinc-600">No public projects yet.</p>
@@ -165,6 +204,13 @@ export default async function PublicProfilePage({
               ))}
             </div>
           </>
+        )}
+
+        {/* User Comments — LinkedIn-style activity */}
+        {formattedComments.length > 0 && (
+          <div className="mt-12">
+            <PublicUserComments comments={formattedComments} username={username} />
+          </div>
         )}
       </div>
     </div>

@@ -262,11 +262,19 @@ export function UnlockedDashboard({
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-white">Notifications</h2>
-          {unreadNotifications.length > 0 && (
-            <span className="text-[11px] font-medium text-indigo-400">
-              {unreadNotifications.length} unread
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {unreadNotifications.length > 0 && (
+              <span className="text-[11px] font-medium text-indigo-400">
+                {unreadNotifications.length} unread
+              </span>
+            )}
+            <Link
+              href="/dashboard/notifications"
+              className="text-[12px] font-medium text-indigo-400 transition-colors hover:text-indigo-300"
+            >
+              View all →
+            </Link>
+          </div>
         </div>
 
         {notifications.length === 0 ? (
