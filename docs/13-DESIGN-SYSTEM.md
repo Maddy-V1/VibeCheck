@@ -139,31 +139,79 @@ const tierConfig = {
 ### Score Ring (for evaluation result)
 
 ```tsx
-// Use on project cards and reveal page
-// Animate from 0 to actual score using Framer Motion
-<div className="relative w-24 h-24">
-  <svg viewBox="0 0 100 100" className="rotate-[-90deg]">
-    <circle cx="50" cy="50" r="42" fill="none" stroke="#2D2D4E" strokeWidth="8"/>
-    <motion.circle
-      cx="50" cy="50" r="42" fill="none"
-      stroke="#6C47FF" strokeWidth="8"
-      strokeLinecap="round"
-      strokeDasharray={`${2 * Math.PI * 42}`}
-      initial={{ strokeDashoffset: 2 * Math.PI * 42 }}
-      animate={{ strokeDashoffset: 2 * Math.PI * 42 * (1 - score / 100) }}
-      transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-    />
-  </svg>
-  <div className="absolute inset-0 flex items-center justify-center">
-    <motion.span
-      className="text-2xl font-display font-bold text-text-primary"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.5 }}
+// Used across dashboard project cards, community feed cards, badge page related projects.
+// Hue-adaptive coloring: red < 40, amber < 70, green >= 70, purple >= 85
+
+function ScoreRing({ score, size = 48 }: { score: number; size?: number }) {
+  const pct = Math.min(score, 100)
+  const hue = pct < 40 ? 0 : pct < 70 ? 45 : pct < 85 ? 145 : 245
+  return (
+    <div
+      className="relative flex items-center justify-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background: `conic-gradient(hsla(${hue},80%,55%,0.85) ${pct * 3.6}deg, rgba(255,255,255,0.06) 0deg)`,
+        // Optional glow for community cards:
+        // boxShadow: `0 0 24px hsla(${hue},80%,55%,0.15)`,
+      }}
     >
-      {score}
-    </motion.span>
+      <div
+        className="flex items-center justify-center rounded-full bg-zinc-950 text-xs font-bold tabular-nums text-white"
+        style={{ width: size - 10, height: size - 10 }}
+      >
+        {Math.round(score)}
+      </div>
+    </div>
+  )
+}
+```
+
+### Gradient Accent Bar (for project cards)
+
+```tsx
+// Thin 4px colored bar at the top of project cards, color matches status
+<div
+  className="h-1 w-full"
+  style={{
+    background: `linear-gradient(90deg, ${statusColor}50, ${statusColor}10, transparent)`,
+  }}
+/>
+```
+
+### Timeline Spine (for notifications)
+
+```tsx
+// Vertical gradient line connecting notification nodes
+<div className="absolute bottom-0 left-[19px] top-0 w-px bg-gradient-to-b from-white/[0.08] via-white/[0.05] to-transparent" />
+
+// Timeline node — color-coded icon with optional glow for unread items
+<div className={cn(
+  'flex h-10 w-10 items-center justify-center rounded-xl border',
+  accent.bg,
+  accent.border,
+  !isRead && accent.glow, // e.g. 'shadow-[0_0_20px_rgba(16,185,129,0.12)]'
+  'group-hover:scale-110'
+)}>
+  <Icon size={16} className={accent.icon} />
+</div>
+```
+
+### Glassmorphism Stat Card
+
+```tsx
+// Used on dashboard and projects page for stat overview
+<div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-all duration-300 hover:border-white/[0.12] hover:shadow-lg">
+  <div className="mb-3 flex items-center justify-between">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-600">
+      {label}
+    </p>
+    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconBg}`}>
+      {icon}
+    </div>
   </div>
+  <p className="text-2xl font-bold tabular-nums text-white">{value}</p>
+  <p className="mt-0.5 text-[11px] text-zinc-600">{detail}</p>
 </div>
 ```
 
@@ -255,10 +303,15 @@ const tierConfig = {
 ## Animation Rules
 
 - **Page transitions:** `opacity: 0 → 1`, duration 200ms
-- **Card hover:** `translateY(-2px)`, shadow intensifies, duration 150ms
+- **Card hover:** `translateY(-2px)` or `translateY(-6px)` for community cards, shadow intensifies, duration 300ms
 - **Score reveal:** 1.2s cubic-bezier(0.16, 1, 0.3, 1) — feels satisfying
 - **Notifications slide in:** from right, 300ms
 - **Queue number update:** count-up animation, 600ms
+- **Queue pulse:** `animate-pulse` on a 1.5w/1.5h dot (indigo-400)
+- **Timeline node hover:** `scale-110` transition, 200ms
+- **Unread notification ping:** `animate-ping` on counter badge
+- **Active reaction:** `scale-105` + glow shadow transition
+- **Loading spinner:** spinning circle border (border-t-indigo-400), not text
 - **Never:** jarring, long, or decorative-only animations
 
 ---

@@ -62,47 +62,50 @@ The platform uses a **unified engagement system** for both community posts AND p
 
 ---
 
-## Community Project Card
+## Community Project Card (Premium Design)
 
-Same as public profile project card but includes:
-- Reaction count with breakdown (like, fire, etc.)
-- Comment count
-- Author avatar + username link
-- Time since evaluation
+Each card in the community feed uses a premium glassmorphism design:
+
+```
+┌────────────────────────────────────────────┐
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  │  ← tier-colored gradient header
+│  [ScoreRing]            [Tier Badge]      │     emerald/sky/violet per tier
+│                         evaluated 2d ago   │
+│  ──────────────────────────────────────── │
+│  Project Title                            │
+│  Description text (line-clamp-2)...       │
+│                                            │
+│  [React] [Next.js] [Supabase] [+2]       │  ← tech stack pills
+│                                            │
+│  ┌─ Evaluator note ─────────────────────┐ │
+│  │  "Well-structured project with..."    │ │
+│  └──────────────────────────────────────┘ │
+│                                            │
+│  [Avatar] @username      [💬 5]           │  ← links to profile
+│                                            │
+│  [👍 3] [🔥 5] [💡 2] [🤯 1] [👏 0]     │  ← reaction buttons
+│                                            │
+│  [🔗 Live]       [Comment] [View →]      │
+└────────────────────────────────────────────┘
+```
+
+**Design details:**
+- Tier-colored gradient header: `from-emerald-500/15` (tier1), `from-sky-500/15` (tier2), `from-violet-500/15` (tier3)
+- Score ring: hue-adaptive conic-gradient with glow shadow (`boxShadow: hsla(...)`)
+- Active reactions: scale-105 + indigo glow shadow (`0_0_12px_rgba(99,102,241,0.15)`)
+- Cards lift on hover: `-translate-y-1.5`, deep shadow, border brightens
+- Author avatars with gradient fallback (`from-indigo-500/30 to-violet-500/30`)
+- Loading: spinning circle indicator instead of text
+- Infinite scroll with intersection observer (320px rootMargin)
+
+**Component:** `components/features/community/community-feed.tsx`
+**Page:** `app/community/page.tsx`
 
 ```tsx
-export function CommunityProjectCard({ project, evaluation }) {
-  return (
-    <a href={`/u/${project.profiles.username}/projects/${project.slug}`}>
-      <div className="rounded-card border border-surface-border bg-surface-card p-5">
-        
-        <div className="flex items-start justify-between mb-3">
-          <TierBadge tier={evaluation.tier_confirmed} />
-          <ScoreChip score={evaluation.score_total} />
-        </div>
-
-        <h3 className="text-base font-semibold text-text-primary mb-1">{project.title}</h3>
-        <p className="text-sm text-text-secondary line-clamp-2 mb-4">{project.description}</p>
-
-        {/* Engagement metrics */}
-        <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
-          <span className="flex items-center gap-1">
-            <HeartIcon size={14} /> {project.reaction_count}
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageIcon size={14} /> {project.comment_count}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <img src={project.profiles.avatar_url} className="w-6 h-6 rounded-full" />
-          <span className="text-xs text-text-secondary">
-            by @{project.profiles.username}
-          </span>
-        </div>
-      </div>
-    </a>
-  )
+export function CommunityFeed({ viewer }: { viewer: CommunityViewer }) {
+  // Filters: tier (all/tier1/tier2/tier3), minScore (0/60/75/90), sort (newest/top-scored)
+  // Uses useInfiniteQuery with intersection observer for infinite scroll
+  // Reaction mutations with optimistic cache updates
 }
 ```
 

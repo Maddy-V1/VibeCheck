@@ -28,7 +28,7 @@
 ### Page Layout
 
 ```
-┌────────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────┐
 │  HEADER — full width, dark background                          │
 │                                                                │
 │  [Avatar 80px]  [Display Name]          [Phase 2 Rating Slot]  │
@@ -37,15 +37,33 @@
 │                                                                │
 │                 [GitHub] [LinkedIn] [Website]                  │
 │                                                                │
-│  ────────────────────────────────────────────────────────────  │
+│  ──────────────────────────────────────────────────────────  │
 │                                                                │
 │  PROJECTS GRID — 3 col desktop, 2 col tablet, 1 col mobile    │
 │                                                                │
 │  [Project Card] [Project Card] [Project Card]                  │
 │  [Project Card] [Project Card]                                 │
 │                                                                │
-└────────────────────────────────────────────────────────────────┘
+│  ──────────────────────────────────────────────────────────  │
+│                                                                │
+│  RECENT ACTIVITY (LinkedIn-style)                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  [COMMENT] on Project Title →                              │  │
+│  │  "Comment body text here..."                              │  │
+│  │  2 hours ago                                              │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ...more comments                                              │
+│                                                                │
+└────────────────────────────────────────────────────────────┘
 ```
+
+**Recent Activity section:**
+- Component: `components/features/profile/PublicUserComments.tsx`
+- Shows up to 10 of the user's recent top-level comments across all projects
+- Each card links to the project's comments section (`/badge/[id]#comments`)
+- Displays: `[COMMENT]` tag, project title, comment body (line-clamp-3), relative timestamp
+- Fetched via service client (bypasses RLS) with `comments` joined to `projects(title)`
+- Only visible comments (`status = 'visible'`), top-level only (`parent_comment_id IS NULL`)
 
 ---
 
@@ -180,132 +198,88 @@ export function PublicProjectCard({ project, evaluation }) {
 
 ---
 
-## Individual Project Page — `/u/[username]/projects/[slug]`
-
-Full project detail view with reactions and comments.
-
-```
-┌────────────────────────────────────────────┐
-│  ← Back to @username                       │
-│                                            │
-│  [Project Title]                [Score]    │
-│  [Tier Badge]   [Live URL]                 │
-│                                            │
-│  [👍 12] [🔥 5] [💡 3]  [Comment]         │  ← Reactions + Comment button
-│                                            │
-│  Description                               │
-│  [Full text]                               │
-│                                            │
-│  Tech Stack                                │
-│  [tag] [tag] [tag]                         │
-│                                            │
-│  Score Breakdown                           │
-│  [Bar chart of all 7 categories]           │
-│                                            │
-│  Reviewer Note                             │
-│  "[text]"                                  │
-│                                            │
-│  ──────────────────────────────────────    │
-│                                            │
-│  Comments (12)                             │
-│  [Comment component]                       │
-│  [Comment component]                       │
-│  [Add comment form]                        │
-│                                            │
-│  [Download Badge PNG] [Share] [Verify]     │
-└────────────────────────────────────────────┘
-```
-
-### Project Page Data Fetching
-
-```typescript
-// app/(public)/u/[username]/projects/[slug]/page.tsx
-export default async function ProjectPage({ params }) {
-  const supabase = createServerComponentClient()
-
-  const { data: project } = await supabase
-    .from('projects')
-    .select(`
-      *,
-      evaluations(*),
-      profiles(username, display_name, avatar_url)
-    `)
-    .eq('slug', params.slug)
-    .eq('is_public', true)
-    .single()
-
-  if (!project) notFound()
-
-  // Get top-level comments
-  const { data: comments } = await supabase
-    .from('comments')
-    .select(`
-      *,
-      profiles(username, display_name, avatar_url)
-    `)
-    .eq('project_id', project.id)
-    .is('parent_comment_id', null)
-    .eq('status', 'visible')
-    .order('created_at', { ascending: false })
-
-  // Get reaction breakdown
-  const { data: reactionBreakdown } = await supabase
-    .from('reactions')
-    .select('reaction_type')
-    .eq('project_id', project.id)
-
-  const reactionCounts = reactionBreakdown?.reduce((acc, r) => {
-    acc[r.reaction_type] = (acc[r.reaction_type] || 0) + 1
-    return acc
-  }, {})
-
-  return (
-    <ProjectPageUI 
-      project={project} 
-      comments={comments}
-      reactionCounts={reactionCounts}
-    />
-  )
-}
-```
-
----
-
-## Individual Project Page — `/u/[username]/projects/[slug]`
-
-Full project detail view.
-│  Score Breakdown                           │
-│  [Bar chart of all 7 categories]           │
-│                                            │
-│  Reviewer Note                             │
-│  "[text]"                                  │
-│                                            │
-│  [Download Badge PNG] [Share] [Verify]     │
-└────────────────────────────────────────────┘
-```
-
----
-
 ## Standalone Badge Page — `/badge/[projectId]`
 
-For GitHub README embeds. Simple, clean, no nav.
+Public project detail page with full evaluation results, comments, and related projects.
+
+**Route:** `app/badge/[projectId]/page.tsx`
 
 ```
-┌──────────────────────────────────────┐
-│  [Platform Logo]                     │
-│                                      │
-│  [Badge image — large]               │
-│                                      │
-│  Project: [Title]                    │
-│  Builder: @username                  │
-│  Score: 84/100 · Tier 2 · Builder   │
-│                                      │
-│  [Download PNG] [View Full Profile]  │
-│                                      │
-│  Embed in README:                    │
-│  [![Badge](url)](badge_url)          │
-└──────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│  ← Back to Home                                           │
+│                                                          │
+│  [Two Column Layout]                                     │
+│                                                          │
+│  LEFT COLUMN (2/3)           │  RIGHT COLUMN (1/3)       │
+│  ────────────────────────  │  ─────────────────────  │
+│  [Title + TierBadgeImage]    │  PublicResultsPanel       │
+│  [Status badges]             │  (Score breakdown,        │
+│  [Description]               │   7 categories,           │
+│  by @username                │   reviewer note)          │
+│                              │                           │
+│  [Live] [GitHub] [Demo]     │                           │
+│                              │                           │
+│  Tech Stack                  │                           │
+│  [tag] [tag] [tag]           │                           │
+│                              │                           │
+│  Project Details              │                           │
+│  Submitted / Evaluated dates │                           │
+│                              │                           │
+│  ────────────────────────  │                           │
+│  Comments (Preview Mode)     │                           │
+│  [Comment 1]                 │                           │
+│  [Comment 2]                 │                           │
+│  [See all X comments]       │                           │
+│                              │                           │
+│  ────────────────────────  │                           │
+│  FROM THE COMMUNITY          │                           │
+│  More evaluated projects     │                           │
+│  [Card] [Card] [Card]       │                           │
+│  [Card] [Card] [Card]       │                           │
+└────────────────────────────────────────────────────────┘
 ```
+
+### Comments Preview Mode
+
+**Component:** `components/features/community/project-comments.tsx`
+
+The `ProjectComments` component accepts a `previewMode` prop:
+- When `previewMode = true`: Only the first 2 top-level comments are shown
+- A "See all X comments" button expands to show all comments
+- The comment input form is hidden in preview mode
+- Clicking "See all" sets `showAll = true` (client-side toggle)
+
+### Related Projects Section
+
+**Component:** `components/features/community/related-projects.tsx`
+
+Shows up to 6 other evaluated public projects, **excluding** the current project.
+
+```
+┌────────────────────────────────────────────────────────┐
+│  FROM THE COMMUNITY                                        │
+│  More evaluated projects                                   │
+│                                                            │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐  │
+│  │ [ScoreRing] │ │ [ScoreRing] │ │ [ScoreRing] │  │
+│  │ [Tier]      │ │ [Tier]      │ │ [Tier]      │  │
+│  │ Title       │ │ Title       │ │ Title       │  │
+│  │ desc...     │ │ desc...     │ │ desc...     │  │
+│  │ [tags]      │ │ [tags]      │ │ [tags]      │  │
+│  │ @user 💬 5  │ │ @user 💬 3  │ │ @user 💬 8  │  │
+│  └────────────┘ └────────────┘ └────────────┘  │
+└────────────────────────────────────────────────────────┘
+```
+
+**Each card includes:**
+- Score ring (conic-gradient with hue-adaptive coloring)
+- Tier badge with `TierBadgeImage`
+- Title, description (line-clamp-2)
+- Tech stack pills (max 3 + overflow counter)
+- Author avatar + @username
+- Comment count
+- Live URL icon (if available)
+- Hover: lift + border brighten
 
 ---
 

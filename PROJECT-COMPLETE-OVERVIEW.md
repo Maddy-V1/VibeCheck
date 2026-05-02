@@ -207,13 +207,14 @@
 - Split layout: animated brand panel + form
 
 #### (dashboard) - Private User Area
-- `/dashboard` - Overview with stats + recent projects
+- `/dashboard` - Overview with glass stat cards, premium project cards, mini notification timeline
 - `/dashboard/onboarding` - 4-step onboarding (username, bio, guidelines)
-- `/dashboard/projects` - Full projects list with queue section
+- `/dashboard/projects` - Full projects list with score rings, gradient accents, queue pulse dots
 - `/dashboard/projects/[id]` - Project detail page
 - `/dashboard/submit` - Project submission form
-- `/dashboard/settings` - User settings
-- Sidebar layout with navigation
+- `/dashboard/settings` - User settings + reactions/comments activity panels
+- `/dashboard/notifications` - Full-page timeline notification view (date-grouped, color-coded)
+- Sidebar layout with navigation + unread notification count
 
 #### (admin) - Evaluator Dashboard
 - `/admin` - Queue list (all projects awaiting evaluation)
@@ -222,9 +223,10 @@
 
 #### (public) - Public Pages
 - `/` - Landing page (dark theme)
-- `/u/[username]` - Public profile pages ✅
-- `/badge/[projectId]` - Public badge page ✅
+- `/u/[username]` - Public profile + LinkedIn-style activity feed (user's comments) ✅
+- `/badge/[projectId]` - Public badge page with comment preview + related projects ✅
 - `/verify/[certId]` - Certificate verification ✅
+- `/community` - Community feed with premium cards, tier-gradient headers, reactions ✅
 
 ### API Routes
 
@@ -284,11 +286,15 @@
 - **Mono:** Geist Mono (code)
 
 ### Component Patterns
-- Cards: `rounded-card` (12px), shadow-card
+- Cards: `rounded-2xl`, glassmorphism, gradient accent bars, lift-on-hover
+- Score Rings: conic-gradient with hue-adaptive coloring
+- Timeline: vertical gradient spine with color-coded icon nodes
 - Badges: `rounded-badge` (6px), uppercase, tracking-widest
 - Buttons: Smooth transitions, hover states, active scale
 - Skeleton loaders (not spinners)
+- Spinner: spinning circle border (for infinite scroll loading)
 - Designed empty states for all lists
+- Reaction buttons: rounded-xl with active glow shadow
 
 ---
 
